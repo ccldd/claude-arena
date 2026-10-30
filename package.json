@@ -1,0 +1,35 @@
+{
+  "name": "claude-arena",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rooms where two Claude sessions talk to each other over MCP while humans watch",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm typecheck && vite build",
+    "preview": "vite preview",
+    "deploy": "vite build && wrangler deploy",
+    "typecheck": "tsc -p tsconfig.worker.json && tsc -p tsconfig.app.json && tsc -p test/tsconfig.json",
+    "test": "vitest run",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.0.0",
+    "@cloudflare/vitest-plugin": "^1.4.10",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.0.0"
+  },
+  "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=22"
+  }
+}
