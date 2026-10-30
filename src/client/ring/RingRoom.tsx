@@ -9,11 +9,30 @@ import { setSound, sfx, soundOn } from './sound';
 import './ring.css';
 
 const HIT_MS = 900;
+// Pause after a message finishes typing before the next speaker's message comes on.
+const NEXT_MS = 1800;
 const SOUNDS = ['POW!', 'BAM!', 'WHAM!', 'KAPOW!', 'THWACK!', 'BOOM!'];
 
 export function RingRoom({ room: live, switcher }: { room: RoomView; switcher: ReactNode }) {
   const [replay, setReplay] = useState<number | null>(null);
-  const room = replay === null ? live : replayView(live, replay);
+  const total = live.messages.length;
+  // Live messages go on stage one at a time, so a fast reply waits for the last one to finish typing.
+  const [staged, setStaged] = useState(total);
+  const [typed, setTyped] = useState(true);
+  useEffect(() => {
+    if (replay !== null || !typed || staged >= total) return;
+    const timer = setTimeout(
+      () => {
+        setStaged((s) => s + 1);
+        setTyped(false);
+      },
+      staged === 0 ? 0 : NEXT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [replay, typed, staged, total]);
+
+  const room =
+    replay !== null ? replayView(live, replay) : staged < total ? replayView(live, staged) : live;
   const count = room.messages.length;
   const latest = room.messages.at(-1);
 
@@ -31,13 +50,12 @@ export function RingRoom({ room: live, switcher }: { room: RoomView; switcher: R
   useMatchSounds(room);
 
   // Replay steps: 0 is the opening bell, 1..n shows that many messages, n+1 is the final bell.
-  const total = live.messages.length;
   const lastStep = live.status === 'over' ? total + 1 : total;
   useEffect(() => {
     if (replay === null) return;
     if (replay > lastStep) return exitReplay();
     const delay =
-      replay === 0 ? 1500 : replay > total ? 2500 : typingMs(live.messages[replay - 1].text) + 1800;
+      replay === 0 ? 1500 : replay > total ? 2500 : typingMs(live.messages[replay - 1].text) + NEXT_MS;
     const timer = setTimeout(() => setReplay((r) => (r === null ? null : r + 1)), delay);
     return () => clearTimeout(timer);
   }, [replay, lastStep]);
@@ -48,6 +66,8 @@ export function RingRoom({ room: live, switcher }: { room: RoomView; switcher: R
   };
   function exitReplay() {
     seenOnLoad.current = live.messages.length;
+    setStaged(live.messages.length);
+    setTyped(true);
     setReplay(null);
   }
 
@@ -131,7 +151,13 @@ export function RingRoom({ room: live, switcher }: { room: RoomView; switcher: R
           <Challenge room={live} />
         </div>
       ) : (
-        <Dialogue room={room} latest={latest} animate={count > seenOnLoad.current} />
+        <Dialogue
+          key={count}
+          room={room}
+          latest={latest}
+          animate={count > seenOnLoad.current}
+          onDone={setTyped}
+        />
       )}
 
       {count > 1 && (
@@ -239,9 +265,20 @@ function Banner({ room }: { room: RoomView }) {
   return text ? <div className={`banner ${text === 'FIGHT!' ? 'banner-fight' : ''}`}>{text}</div> : null;
 }
 
-function Dialogue({ room, latest, animate }: { room: RoomView; latest?: Message; animate: boolean }) {
+function Dialogue({
+  room,
+  latest,
+  animate,
+  onDone,
+}: {
+  room: RoomView;
+  latest?: Message;
+  animate: boolean;
+  onDone: (done: boolean) => void;
+}) {
   const text = latest ? plain(latest.text) : '';
   const [shown, done, skip] = useTypewriter(text, animate, latest?.seat ?? 0);
+  useEffect(() => onDone(done), [done]);
   const speaker = room.seats[room.turn];
 
   if (!latest) {
