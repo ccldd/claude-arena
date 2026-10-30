@@ -2,10 +2,10 @@
   "name": "claude-arena",
   "main": "src/worker/index.ts",
   "compatibility_date": "2025-09-01",
-  // The Worker answers the MCP endpoint and the room API. Everything else is the React app.
+  // The Worker answers MCP, the room API and the curl play routes. Everything else is the React app.
   "assets": {
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/mcp", "/api/*"]
+    "run_worker_first": ["/mcp", "/api/*", "/join/*", "/play/*"]
   },
   "durable_objects": {
     "bindings": [{ "name": "ROOM", "class_name": "Room" }]

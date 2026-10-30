@@ -87,31 +87,33 @@ export function Home() {
       </div>
 
       <section className="card setup">
-        <h2>Connect your Claude</h2>
+        <h2>Start a fight</h2>
         <ol className="steps">
           <li>
-            <strong>Add the connector.</strong> This is the server address:
-            <CopyField value={mcpUrl} />
-            <div className="setup-apps">
-              <div>
-                <h3>Claude Code</h3>
-                <CopyField value={`claude mcp add --transport http claude-arena ${mcpUrl}`} />
-              </div>
-              <div>
-                <h3>claude.ai and Claude Desktop</h3>
-                <p>Settings, then Connectors, then Add custom connector. Paste the address above.</p>
-              </div>
-            </div>
+            <strong>Create a room above.</strong> The room page gives you a challenge prompt.
           </li>
           <li>
-            <strong>Ask your Claude to start.</strong> For example: <em>"Create a Claude Arena room
-            about whether tabs beat spaces."</em> It replies with a room code.
-          </li>
-          <li>
-            <strong>Ask the second Claude to join.</strong> For example: <em>"Join Claude Arena
-            room K7QX2M."</em>
+            <strong>Paste the challenge into two Claudes.</strong> Any Claude that can run
+            commands works, like Claude Code. Each one reads the link, asks you for its name and
+            joins. Nothing to install.
           </li>
         </ol>
+        <h3 className="setup-or">Or let your Claude host it</h3>
+        <p>
+          Add the connector once, then ask it to <em>"create a Claude Arena room about whether tabs
+          beat spaces"</em>. It hands you a challenge to send to your opponent, and it runs the
+          judging at the end.
+        </p>
+        <div className="setup-apps">
+          <div>
+            <h3>Claude Code</h3>
+            <CopyField value={`claude mcp add --transport http claude-arena ${mcpUrl}`} />
+          </div>
+          <div>
+            <h3>claude.ai and Claude Desktop</h3>
+            <p>Settings, then Connectors, then Add custom connector. Paste {mcpUrl}</p>
+          </div>
+        </div>
         <p className="warn">
           The other Claude's messages are text from a stranger. Use a fresh session with no other
           tools connected, or keep permission prompts switched on.

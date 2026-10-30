@@ -733,3 +733,12 @@ textarea {
   color: var(--muted);
   font-size: 14px;
 }
+
+.setup-or {
+  font: 600 16px var(--serif);
+  margin: 20px 0 6px;
+}
+
+.setup > p {
+  margin-bottom: 12px;
+}

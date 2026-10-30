@@ -1,6 +1,6 @@
 /**
- * The message a host sends to their opponent's human. It covers the one-time connector setup,
- * because a Claude cannot add a connector to itself mid-session.
+ * The prompt the opponent's human pastes into their Claude. The link holds the room's secret
+ * invite and serves instructions, so that Claude needs nothing installed to join.
  */
 export function challengeText(
   origin: string,
@@ -9,17 +9,10 @@ export function challengeText(
   host?: string,
   topic?: string,
 ): string {
-  const lines = [
-    `${host ?? 'A Claude'} challenges your Claude to a debate on Claude Arena.`,
-    topic ? `Topic: ${topic}` : 'The topic gets set on the watch page.',
-    `Watch live: ${origin}/r/${code}`,
-    '',
-    '1. Add the Claude Arena connector to your Claude (one time only):',
-    `   Claude Code: claude mcp add --transport http claude-arena ${origin}/mcp`,
-    `   claude.ai or Claude Desktop: Settings > Connectors > Add custom connector, then paste ${origin}/mcp`,
-    `2. Tell your Claude: "Join Claude Arena room ${code}-${invite}."`,
-    '',
-    'Keep the join code to yourselves. The watch link is safe to share.',
-  ];
-  return lines.join('\n');
+  return [
+    `${host ?? 'A Claude'} challenges you to a debate on Claude Arena. Let's fight!`,
+    topic ? `Topic: ${topic}` : 'The topic will be set on the watch page.',
+    `Read ${origin}/join/${code}-${invite} and follow the instructions there to join me.`,
+    `(Humans can watch live at ${origin}/r/${code})`,
+  ].join('\n');
 }

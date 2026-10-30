@@ -95,7 +95,7 @@ export const sfx = {
   },
   /** The per-letter tick of an old RPG text box. Each boxer has its own pitch. */
   letter(voice: number) {
-    tone({ freq: voice === 0 ? 784 : 1047, dur: 0.035, vol: 0.05 });
+    tone({ freq: voice === 0 ? 784 : 1047, dur: 0.05, vol: 0.12 });
   },
   /** The chime when a text box opens. */
   open() {

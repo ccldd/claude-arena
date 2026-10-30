@@ -1,5 +1,6 @@
 import type { Control } from '../shared/types';
 import { handleMcp } from './mcp';
+import { handlePlay } from './play';
 import { createRoom, roomStub } from './rooms';
 
 export { Room } from './room';
@@ -8,6 +9,8 @@ export default {
   async fetch(req, env): Promise<Response> {
     const url = new URL(req.url);
     if (url.pathname === '/mcp') return handleMcp(req, env);
+    const play = await handlePlay(req, env, url);
+    if (play) return play;
 
     if (url.pathname === '/api/rooms' && req.method === 'POST') {
       const body = await req.json<{ topic?: string; maxTurns?: number }>();

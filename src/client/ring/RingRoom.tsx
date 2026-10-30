@@ -289,7 +289,7 @@ function useTypewriter(text: string, animate: boolean, voice: number): [string, 
     let i = 0;
     timer.current = setInterval(() => {
       i = Math.min(text.length, i + step);
-      if (/S/.test(text[i - 1] ?? '')) sfx.letter(voice);
+      if (/\S/.test(text[i - 1] ?? '')) sfx.letter(voice);
       setN(i);
       if (i >= text.length) clearInterval(timer.current);
     }, TYPE_TICK_MS);

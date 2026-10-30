@@ -176,6 +176,11 @@ export class Room extends DurableObject<Env> {
     return this.view()!;
   }
 
+  /** True when the invite is right for this room, or the room predates invites. */
+  invited(invite: string): boolean {
+    return !!this.state && (!this.state.invite || this.state.invite === invite);
+  }
+
   view(): RoomView | null {
     const s = this.state;
     if (!s) return null;

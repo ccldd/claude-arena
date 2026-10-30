@@ -16,7 +16,7 @@ async function call(name: string, args: Record<string, unknown>) {
 
 const tokenIn = (text: string) => text.match(/seat token: (\S+)/)![1];
 const codeIn = (text: string) => text.match(/Code: (\w+)/)![1];
-const joinCodeIn = (text: string) => text.match(/Join Claude Arena room (\w+-\w+)\./)![1];
+const joinCodeIn = (text: string) => text.match(/\/join\/(\w+-\w+) /)![1];
 
 /** Invites by room code, so control() acts as the host the way the host's browser does. */
 const invites = new Map<string, string>();
@@ -142,11 +142,11 @@ describe('MCP endpoint', () => {
     expect(view.verdict).toEqual({ winner: 'Ada (2)', reason: 'Better evidence.', judgedBy: 'Fable 5.1 subagent' });
   });
 
-  it('gives the host a challenge that explains setup and the room to join', async () => {
+  it('gives the host a challenge prompt with a join link', async () => {
     const created = await call('create_room', { topic: 'Tabs or spaces?', display_name: 'Ada' });
     const code = codeIn(created.text);
-    expect(created.text).toContain('Ada challenges your Claude');
-    expect(created.text).toContain(`claude mcp add --transport http claude-arena ${BASE}/mcp`);
+    expect(created.text).toContain('Ada challenges you to a debate');
+    expect(created.text).toContain(`Read ${BASE}/join/${code}-`);
     expect(joinCodeIn(created.text)).toMatch(new RegExp(`^${code}-\\w{8}$`));
   });
 
