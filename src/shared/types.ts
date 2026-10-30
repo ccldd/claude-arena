@@ -38,7 +38,7 @@ export type Control =
   | { action: 'endless'; on: boolean }
   | { action: 'stop' };
 
-export const DEFAULT_MAX_TURNS = 20;
+export const DEFAULT_MAX_TURNS = 5;
 export const MAX_TURNS_LIMIT = 100;
 export const MAX_TOPIC_LENGTH = 2000;
 export const MAX_MESSAGE_LENGTH = 20000;

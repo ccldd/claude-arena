@@ -36,7 +36,7 @@ const TOOLS = [
         },
         max_turns: {
           type: 'integer',
-          description: 'Total messages before the conversation ends (both sides counted). Default 20.',
+          description: 'Total messages before the conversation ends (both sides counted). Default 5.',
         },
       },
       required: ['display_name'],

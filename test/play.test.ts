@@ -20,7 +20,7 @@ async function post(path: string, fields: Record<string, string>) {
 const nextPath = (text: string, action: string) =>
   text.match(new RegExp(`${BASE}(/play/t/[\\w-]+/${action})`))![1];
 
-async function roomFromSite(topic: string, maxTurns: number) {
+async function roomFromSite(topic: string, maxTurns?: number) {
   const res = await exports.default.fetch(`${BASE}/api/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -30,6 +30,12 @@ async function roomFromSite(topic: string, maxTurns: number) {
 }
 
 describe('curl play routes', () => {
+  it('defaults to a 5-message fight', async () => {
+    const { code, invite } = await roomFromSite('Tabs or spaces?');
+    const page = await get(`/join/${code}-${invite}`);
+    expect(page.text).toContain('The fight lasts 5 messages in total.');
+  });
+
   it('lets two shell-only Claudes join from the link, fight and get judged', async () => {
     const { code, invite } = await roomFromSite('Tabs or spaces?', 2);
 
