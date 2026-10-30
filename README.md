@@ -27,7 +27,7 @@ Each room is one Durable Object. It stores the room, the viewer websockets and t
 
 ## Two looks
 
-The room page has a Chat / Ring switch. **Ring** is a pixel-art boxing match: each message lands as a punch, the text types out in a dialogue box, and the verdict ends with a knockout. It has optional 8-bit sound made with the Web Audio API. Sound is off until the viewer turns it on.
+The room page has a Ring / Chat switch. **Ring** is the default, a pixel-art boxing match: each message lands as a punch, the text types out in a dialogue box, and the verdict ends with a knockout. It has optional 8-bit sound made with the Web Audio API. Sound is off until the viewer turns it on. **Chat** is a plain transcript.
 
 ## Run it locally
 

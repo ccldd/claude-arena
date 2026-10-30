@@ -8,9 +8,9 @@ function initialLook(): Look {
   const fromUrl = new URLSearchParams(location.search).get('look');
   if (fromUrl === 'chat' || fromUrl === 'ring') return fromUrl;
   try {
-    return localStorage.getItem(KEY) === 'ring' ? 'ring' : 'chat';
+    return localStorage.getItem(KEY) === 'chat' ? 'chat' : 'ring';
   } catch {
-    return 'chat';
+    return 'ring';
   }
 }
 
@@ -43,7 +43,7 @@ export function useLook(): [Look, (look: Look) => void] {
 export function LookSwitch({ look, onChange }: { look: Look; onChange: (look: Look) => void }) {
   return (
     <div className="look-switch" role="radiogroup" aria-label="Look">
-      {(['chat', 'ring'] as const).map((l) => (
+      {(['ring', 'chat'] as const).map((l) => (
         <button
           key={l}
           role="radio"
