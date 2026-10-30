@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import type { RoomView } from '../shared/types';
+import { getInvite } from './invite';
 import { sendControl } from './useRoom';
 
 export function Controls({ room }: { room: RoomView }) {
-  if (room.status === 'over') return null;
+  if (room.status === 'over' || !getInvite(room.code)) return null;
   const control = (action: 'pause' | 'resume' | 'stop') => sendControl(room.code, { action });
   return (
     <>
@@ -37,7 +38,7 @@ export function Controls({ room }: { room: RoomView }) {
 export function Topic({ room }: { room: RoomView }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(room.topic);
-  const canEdit = room.status !== 'over';
+  const canEdit = room.status !== 'over' && !!getInvite(room.code);
 
   if (editing) {
     return (

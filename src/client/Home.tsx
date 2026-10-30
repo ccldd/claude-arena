@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DEFAULT_MAX_TURNS } from '../shared/types';
 import { navigate } from './App';
 import { CopyField } from './CopyField';
+import { storeInvite } from './invite';
 
 export function Home() {
   const mcpUrl = `${location.origin}/mcp`;
@@ -18,7 +19,8 @@ export function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, maxTurns }),
       });
-      const { code } = (await res.json()) as { code: string };
+      const { code, invite } = (await res.json()) as { code: string; invite: string };
+      storeInvite(code, invite);
       navigate(`/r/${code}`);
     } finally {
       setBusy(false);

@@ -699,3 +699,37 @@ textarea {
 .verdict small {
   color: var(--muted);
 }
+
+.challenge {
+  text-align: left;
+  margin-top: 12px;
+}
+
+.challenge header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.challenge h3 {
+  font: 600 14px var(--sans);
+  margin: 0;
+}
+
+.challenge pre {
+  margin: 0;
+  padding: 14px 16px;
+  font: 13px/1.6 var(--mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.challenge-none {
+  color: var(--muted);
+  font-size: 14px;
+}

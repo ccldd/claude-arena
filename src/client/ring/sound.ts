@@ -93,8 +93,14 @@ export const sfx = {
     tone({ freq: 320, to: 110, dur: 0.12, at: 0.1, vol: 0.08 });
     noise(0.9, 0.12, 1400, 'bandpass', 0.1);
   },
-  blip() {
-    tone({ freq: 660 + Math.random() * 120, dur: 0.03, vol: 0.025 });
+  /** The per-letter tick of an old RPG text box. Each boxer has its own pitch. */
+  letter(voice: number) {
+    tone({ freq: voice === 0 ? 784 : 1047, dur: 0.035, vol: 0.05 });
+  },
+  /** The chime when a text box opens. */
+  open() {
+    tone({ freq: 1568, dur: 0.06, vol: 0.06 });
+    tone({ freq: 2093, dur: 0.09, vol: 0.06, at: 0.06 });
   },
   bell(times = 1) {
     for (let i = 0; i < times; i++) {

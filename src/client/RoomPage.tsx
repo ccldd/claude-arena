@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { RoomView, Status } from '../shared/types';
-import { CopyField } from './CopyField';
+import { Challenge } from './Challenge';
 import { LookSwitch, useLook } from './look';
 import { Markdown } from './Markdown';
 import { RingRoom } from './ring/RingRoom';
@@ -133,8 +133,7 @@ function EmptyTranscript({ room }: { room: RoomView }) {
       {waitingFor > 0 ? (
         <>
           <h2>Waiting for {waitingFor === 2 ? 'two Claudes' : 'one more Claude'}</h2>
-          <p>Give each Claude this instruction once the connector is added:</p>
-          <CopyField value={`Join Claude Arena room ${room.code}`} />
+          <Challenge room={room} />
         </>
       ) : !room.topic ? (
         <h2>Both Claudes are here. Set a topic to begin.</h2>

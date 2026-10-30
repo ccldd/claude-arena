@@ -16,15 +16,19 @@ async function call(name: string, args: Record<string, unknown>) {
 
 const tokenIn = (text: string) => text.match(/seat token: (\S+)/)![1];
 const codeIn = (text: string) => text.match(/Code: (\w+)/)![1];
+const joinCodeIn = (text: string) => text.match(/Join Claude Arena room (\w+-\w+)\./)![1];
+
+/** Invites by room code, so control() acts as the host the way the host's browser does. */
+const invites = new Map<string, string>();
 
 async function room(code: string) {
   return (await (await exports.default.fetch(`${BASE}/api/rooms/${code}`)).json()) as RoomView;
 }
 
-async function control(code: string, body: object) {
-  await exports.default.fetch(`${BASE}/api/rooms/${code}/control`, {
+async function control(code: string, body: object, invite = invites.get(code) ?? '') {
+  return exports.default.fetch(`${BASE}/api/rooms/${code}/control`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Arena-Invite': invite },
     body: JSON.stringify(body),
   });
 }
@@ -32,12 +36,14 @@ async function control(code: string, body: object) {
 async function seatedRoom(topic: string | undefined, maxTurns = 4) {
   const created = await call('create_room', { topic, max_turns: maxTurns, display_name: 'Ada' });
   const code = codeIn(created.text);
-  const joined = await call('join_room', { code: code.toLowerCase(), display_name: 'Ada' });
-  return { code, a: tokenIn(created.text), b: tokenIn(joined.text) };
+  const join = joinCodeIn(created.text);
+  invites.set(code, join.split('-')[1]);
+  const joined = await call('join_room', { code: join.toLowerCase(), display_name: 'Ada' });
+  return { code, join, a: tokenIn(created.text), b: tokenIn(joined.text) };
 }
 
 describe('MCP endpoint', () => {
-  it('answers initialize and lists the four tools', async () => {
+  it('answers initialize and lists the tools', async () => {
     const res = await exports.default.fetch(`${BASE}/mcp`, {
       method: 'POST',
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
@@ -96,8 +102,8 @@ describe('MCP endpoint', () => {
   });
 
   it('turns away a third Claude', async () => {
-    const { code } = await seatedRoom('Tabs or spaces?');
-    expect(await call('join_room', { code, display_name: 'Eve' })).toEqual({
+    const { join } = await seatedRoom('Tabs or spaces?');
+    expect(await call('join_room', { code: join, display_name: 'Eve' })).toEqual({
       text: 'Both seats in that room are taken.',
       isError: true,
     });
@@ -134,5 +140,23 @@ describe('MCP endpoint', () => {
     const view = await room(code);
     expect(view.judging).toBe(false);
     expect(view.verdict).toEqual({ winner: 'Ada (2)', reason: 'Better evidence.', judgedBy: 'Fable 5.1 subagent' });
+  });
+
+  it('gives the host a challenge that explains setup and the room to join', async () => {
+    const created = await call('create_room', { topic: 'Tabs or spaces?', display_name: 'Ada' });
+    const code = codeIn(created.text);
+    expect(created.text).toContain('Ada challenges your Claude');
+    expect(created.text).toContain(`claude mcp add --transport http claude-arena ${BASE}/mcp`);
+    expect(joinCodeIn(created.text)).toMatch(new RegExp(`^${code}-\\w{8}$`));
+  });
+
+  it('needs the invite to join or to control the room', async () => {
+    const created = await call('create_room', { topic: 'Tabs or spaces?', display_name: 'Ada' });
+    const code = codeIn(created.text);
+    const watcher = await call('join_room', { code, display_name: 'Eve' });
+    expect(watcher).toEqual({ text: expect.stringContaining('only lets people watch'), isError: true });
+
+    expect((await control(code, { action: 'stop' }, 'WRONG')).status).toBe(400);
+    expect((await room(code)).status).toBe('waiting');
   });
 });

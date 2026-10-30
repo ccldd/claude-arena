@@ -1,6 +1,7 @@
+import { challengeText } from '../shared/challenge';
 import type { Message } from '../shared/types';
 import type { Over, SayResult, WaitResult } from './room';
-import { codeFromToken, createRoom, roomStub } from './rooms';
+import { codeFromToken, createRoom, roomStub, splitJoinCode } from './rooms';
 
 // Minimal MCP server over Streamable HTTP: every POST is one JSON-RPC message, answered as JSON.
 // Claude has never heard of this service, so the descriptions and results carry the instructions.
@@ -49,7 +50,11 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        code: { type: 'string', description: 'The six-character room code.' },
+        code: {
+          type: 'string',
+          description:
+            'The join code from the challenge, like ABC123-7KQ2M9XA. The six-letter room code alone is not enough.',
+        },
         display_name: NAME,
       },
       required: ['code', 'display_name'],
@@ -159,35 +164,39 @@ async function callTool(
     case 'create_room': {
       const displayName = str('display_name')?.trim();
       if (!displayName) return askForName();
-      const { code, token } = await createRoom(env, {
+      const { code, invite, token } = await createRoom(env, {
         topic: str('topic'),
         maxTurns: typeof args.max_turns === 'number' ? args.max_turns : undefined,
         creatorName: displayName,
       });
       const lines = [
         `Room created. Code: ${code}`,
-        `Watch live: ${origin}/r/${code}`,
+        `Your host link: ${origin}/r/${code}?invite=${invite} (it shows the challenge and the controls; give your human this one, not the challenge's watch link)`,
         `Your seat token: ${token}`,
       ];
       if (!str('topic')?.trim()) lines.push('There is no topic yet. A human can set one on the watch page.');
       lines.push(
         '',
         'Next:',
-        `1. Tell your human the room code (${code}) and the watch link now. They pass the code to the other Claude's human, who asks their Claude to join room ${code}.`,
+        `1. Show your human the challenge below, exactly as written, so they can send it to their opponent. It explains how the other Claude gets the connector and joins room ${code}.`,
         '2. Then call wait_for_turn with your token. Keep calling it while it says "still waiting".',
+        '',
+        '<challenge>',
+        challengeText(origin, code, invite, displayName, str('topic')?.trim()),
+        '</challenge>',
       );
       return { text: lines.join('\n') };
     }
     case 'join_room': {
-      const code = str('code') ?? '';
+      const { code, invite } = splitJoinCode(str('code') ?? '');
       const displayName = str('display_name')?.trim();
       if (!displayName) return askForName();
-      const result = await roomStub(env, code).join(displayName);
+      const result = await roomStub(env, code).join(displayName, invite);
       if ('error' in result) return { text: result.error, isError: true };
       return {
         text: [
-          `Joined room ${code.toUpperCase()} in seat ${result.seat + 1}.`,
-          `Watch live: ${origin}/r/${code.toUpperCase()}`,
+          `Joined room ${code} in seat ${result.seat + 1}.`,
+          `Watch live: ${origin}/r/${code}`,
           `Your seat token: ${result.token}`,
           '',
           'Next: call wait_for_turn with your token. Keep calling it while it says "still waiting".',

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Control, RoomView } from '../shared/types';
+import { getInvite } from './invite';
 
 export type RoomLoad = { kind: 'loading' } | { kind: 'missing' } | { kind: 'ready'; room: RoomView };
 
@@ -42,7 +43,7 @@ export function useRoom(code: string): RoomLoad {
 export async function sendControl(code: string, control: Control) {
   await fetch(`/api/rooms/${code}/control`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Arena-Invite': getInvite(code) ?? '' },
     body: JSON.stringify(control),
   });
 }

@@ -23,6 +23,8 @@ interface Seat {
 
 interface State {
   code: string;
+  /** Secret that joining needs on top of the room code, so watchers cannot take a seat. */
+  invite?: string;
   topic: string;
   maxTurns: number;
   seats: (Seat | null)[];
@@ -60,6 +62,7 @@ export type SayResult =
 
 export interface CreateOptions {
   code: string;
+  invite: string;
   topic?: string;
   maxTurns?: number;
   /** Set when a Claude creates the room and takes seat 1 straight away. */
@@ -81,6 +84,7 @@ export class Room extends DurableObject<Env> {
     if (this.state) return { ok: false };
     this.state = {
       code: opts.code,
+      invite: opts.invite,
       topic: cleanTopic(opts.topic),
       maxTurns: clampTurns(opts.maxTurns),
       seats: [null, null],
@@ -94,9 +98,17 @@ export class Room extends DurableObject<Env> {
     return { ok: true, token };
   }
 
-  async join(name: string): Promise<{ token: string; seat: number } | { error: string }> {
+  async join(
+    name: string,
+    invite: string,
+  ): Promise<{ token: string; seat: number } | { error: string }> {
     const s = this.state;
-    if (!s) return { error: 'No room with that code.' };
+    if (!s || (s.invite && s.invite !== invite)) {
+      return {
+        error:
+          'No room matches that join code. Use the full code from the challenge, like ABC123-7KQ2M9XA. The six-letter room code alone only lets people watch.',
+      };
+    }
     if (s.endReason) return { error: 'That room has already finished.' };
     const seat = s.seats.findIndex((x) => x === null);
     if (seat < 0) return { error: 'Both seats in that room are taken.' };
@@ -150,9 +162,10 @@ export class Room extends DurableObject<Env> {
       : { kind: 'sent', remaining: s.endless ? null : s.maxTurns - s.messages.length };
   }
 
-  async control(c: Control): Promise<RoomView | { error: string }> {
+  async control(c: Control, invite: string): Promise<RoomView | { error: string }> {
     const s = this.state;
     if (!s) return { error: 'No room with that code.' };
+    if (s.invite && s.invite !== invite) return { error: 'Only the host can do that.' };
     if (s.endReason) return { error: 'This room has finished.' };
     if (c.action === 'topic') s.topic = cleanTopic(c.topic);
     else if (c.action === 'pause') s.paused = true;

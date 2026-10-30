@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Message, RoomView } from '../../shared/types';
+import { Challenge } from '../Challenge';
 import { Markdown } from '../Markdown';
 import { Controls, Topic } from '../RoomControls';
 import { Boxer, type BoxerState } from './Boxer';
@@ -10,7 +11,9 @@ import './ring.css';
 const HIT_MS = 900;
 const SOUNDS = ['POW!', 'BAM!', 'WHAM!', 'KAPOW!', 'THWACK!', 'BOOM!'];
 
-export function RingRoom({ room, switcher }: { room: RoomView; switcher: ReactNode }) {
+export function RingRoom({ room: live, switcher }: { room: RoomView; switcher: ReactNode }) {
+  const [replay, setReplay] = useState<number | null>(null);
+  const room = replay === null ? live : replayView(live, replay);
   const count = room.messages.length;
   const latest = room.messages.at(-1);
 
@@ -26,6 +29,27 @@ export function RingRoom({ room, switcher }: { room: RoomView; switcher: ReactNo
   }, [count]);
 
   useMatchSounds(room);
+
+  // Replay steps: 0 is the opening bell, 1..n shows that many messages, n+1 is the final bell.
+  const total = live.messages.length;
+  const lastStep = live.status === 'over' ? total + 1 : total;
+  useEffect(() => {
+    if (replay === null) return;
+    if (replay > lastStep) return exitReplay();
+    const delay =
+      replay === 0 ? 1500 : replay > total ? 2500 : typingMs(live.messages[replay - 1].text) + 1800;
+    const timer = setTimeout(() => setReplay((r) => (r === null ? null : r + 1)), delay);
+    return () => clearTimeout(timer);
+  }, [replay, lastStep]);
+
+  const startReplay = () => {
+    seenOnLoad.current = 0;
+    setReplay(0);
+  };
+  function exitReplay() {
+    seenOnLoad.current = live.messages.length;
+    setReplay(null);
+  }
 
   const stateOf = (seat: number): BoxerState => {
     if (!room.seats[seat]) return 'empty';
@@ -44,16 +68,35 @@ export function RingRoom({ room, switcher }: { room: RoomView; switcher: ReactNo
           ROOM <b>{room.code}</b>
         </span>
         <div className="ring-actions">
+          {replay === null ? (
+            total > 0 && (
+              <button className="btn" onClick={startReplay}>
+                Replay
+              </button>
+            )
+          ) : (
+            <>
+              <span className="replay-tag">
+                REPLAY {Math.min(replay, total)}/{total}
+              </span>
+              <button className="btn" onClick={() => setReplay(replay + 1)}>
+                Next
+              </button>
+              <button className="btn" onClick={exitReplay}>
+                Live
+              </button>
+            </>
+          )}
           {switcher}
           <SoundSwitch />
-          <Controls room={room} />
+          <Controls room={live} />
         </div>
       </section>
 
       <Hud room={room} />
 
       <div className="ring-card">
-        <Topic room={room} />
+        <Topic room={live} />
       </div>
 
       <section className={`scene ${hit ? 'shake' : ''}`}>
@@ -83,7 +126,13 @@ export function RingRoom({ room, switcher }: { room: RoomView; switcher: ReactNo
           <p className="dialogue-text">{room.verdict.reason}</p>
         </section>
       )}
-      <Dialogue room={room} latest={latest} animate={count > seenOnLoad.current} />
+      {live.seats.some((s) => !s) && replay === null ? (
+        <div className="ring-challenge">
+          <Challenge room={live} />
+        </div>
+      ) : (
+        <Dialogue room={room} latest={latest} animate={count > seenOnLoad.current} />
+      )}
 
       {count > 1 && (
         <section className="log">
@@ -100,6 +149,22 @@ export function RingRoom({ room, switcher }: { room: RoomView; switcher: ReactNo
       )}
     </main>
   );
+}
+
+/** The room as it looked a given number of replay steps in, with no verdict until the end. */
+function replayView(live: RoomView, step: number): RoomView {
+  const total = live.messages.length;
+  if (step > total) return { ...live, verdict: undefined, judging: false };
+  const next = live.messages[step];
+  return {
+    ...live,
+    messages: live.messages.slice(0, step),
+    status: 'running',
+    turn: next ? next.seat : 1 - live.messages[step - 1].seat,
+    verdict: undefined,
+    judging: false,
+    endReason: undefined,
+  };
 }
 
 /** Bells and the verdict fanfare, played only for changes seen while the page is open. */
@@ -176,7 +241,7 @@ function Banner({ room }: { room: RoomView }) {
 
 function Dialogue({ room, latest, animate }: { room: RoomView; latest?: Message; animate: boolean }) {
   const text = latest ? plain(latest.text) : '';
-  const [shown, done, skip] = useTypewriter(text, animate);
+  const [shown, done, skip] = useTypewriter(text, animate, latest?.seat ?? 0);
   const speaker = room.seats[room.turn];
 
   if (!latest) {
@@ -204,24 +269,37 @@ function Dialogue({ room, latest, animate }: { room: RoomView; latest?: Message;
   );
 }
 
-function useTypewriter(text: string, animate: boolean): [string, boolean, () => void] {
+// About 25 letters a second, so it can be read as it types.
+const TYPE_TICK_MS = 40;
+// Very long messages type a few letters per tick so none takes more than about 36 seconds.
+const typeStep = (length: number) => Math.max(1, Math.ceil(length / 900));
+const typingMs = (markdown: string) => {
+  const length = plain(markdown).length;
+  return Math.ceil(length / typeStep(length)) * TYPE_TICK_MS;
+};
+
+function useTypewriter(text: string, animate: boolean, voice: number): [string, boolean, () => void] {
   const [n, setN] = useState(animate ? 0 : text.length);
+  const timer = useRef<ReturnType<typeof setInterval>>();
   useEffect(() => {
     if (!animate) return setN(text.length);
     setN(0);
-    // Long messages type faster so none takes more than about ten seconds.
-    const step = Math.max(1, Math.ceil(text.length / 600));
-    let ticks = 0;
-    const timer = setInterval(() => {
-      if (ticks++ % 4 === 0) sfx.blip();
-      setN((v) => {
-        if (v >= text.length) clearInterval(timer);
-        return Math.min(text.length, v + step);
-      });
-    }, 16);
-    return () => clearInterval(timer);
-  }, [text, animate]);
-  return [text.slice(0, n), n >= text.length, () => setN(text.length)];
+    sfx.open();
+    const step = typeStep(text.length);
+    let i = 0;
+    timer.current = setInterval(() => {
+      i = Math.min(text.length, i + step);
+      if (/S/.test(text[i - 1] ?? '')) sfx.letter(voice);
+      setN(i);
+      if (i >= text.length) clearInterval(timer.current);
+    }, TYPE_TICK_MS);
+    return () => clearInterval(timer.current);
+  }, [text, animate, voice]);
+  const skip = () => {
+    clearInterval(timer.current);
+    setN(text.length);
+  };
+  return [text.slice(0, n), n >= text.length, skip];
 }
 
 function plain(markdown: string): string {
