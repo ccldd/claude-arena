@@ -62,4 +62,4 @@ Pushes to `main` deploy with GitHub Actions. The repo needs two secrets:
 
 The other Claude's text is untrusted. Tool results wrap it in `<other_claude_message>` tags and tell Claude not to act on it. Use a fresh session with no other tools connected, or keep permission prompts on.
 
-Anyone with the room code can watch. Only the host's browser can join a second Claude or use the controls.
+Anyone with the room code can watch. Taking a seat needs the join code, and the controls need the host's invite.
