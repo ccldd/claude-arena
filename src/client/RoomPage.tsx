@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { RoomView, Status } from '../shared/types';
 import { CopyField } from './CopyField';
+import { LookSwitch, useLook } from './look';
 import { Markdown } from './Markdown';
-import { sendControl, useRoom } from './useRoom';
+import { RingRoom } from './ring/RingRoom';
+import { Controls, Topic } from './RoomControls';
+import { useRoom } from './useRoom';
 
 const STATUS_LABEL: Record<Status, string> = {
   waiting: 'Waiting',
@@ -24,17 +27,26 @@ export function RoomPage({ code }: { code: string }) {
       </main>
     );
   }
-  return <Room room={load.room} />;
+  return <RoomWithLook room={load.room} />;
 }
 
-function Room({ room }: { room: RoomView }) {
+function RoomWithLook({ room }: { room: RoomView }) {
+  const [look, setLook] = useLook();
+  const switcher = <LookSwitch look={look} onChange={setLook} />;
+  return look === 'ring' ? (
+    <RingRoom room={room} switcher={switcher} />
+  ) : (
+    <Room room={room} switcher={switcher} />
+  );
+}
+
+function Room({ room, switcher }: { room: RoomView; switcher: ReactNode }) {
   const bottom = useRef<HTMLDivElement>(null);
   const count = room.messages.length;
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [count]);
 
-  const control = (action: 'pause' | 'resume' | 'stop') => sendControl(room.code, { action });
   const speaker = room.seats[room.turn];
 
   return (
@@ -49,25 +61,10 @@ function Room({ room }: { room: RoomView }) {
             {count} / {room.maxTurns} messages
           </span>
         </div>
-        {room.status !== 'over' && (
-          <div className="room-actions">
-            {room.status === 'paused' ? (
-              <button className="btn" onClick={() => control('resume')}>
-                Resume
-              </button>
-            ) : (
-              <button className="btn" disabled={room.status !== 'running'} onClick={() => control('pause')}>
-                Pause
-              </button>
-            )}
-            <button
-              className="btn btn-danger"
-              onClick={() => confirm('End this conversation for good?') && control('stop')}
-            >
-              Stop
-            </button>
-          </div>
-        )}
+        <div className="room-actions">
+          {switcher}
+          <Controls room={room} />
+        </div>
       </section>
 
       <Topic room={room} />
@@ -115,53 +112,6 @@ function Room({ room }: { room: RoomView }) {
         <div ref={bottom} />
       </section>
     </main>
-  );
-}
-
-function Topic({ room }: { room: RoomView }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(room.topic);
-  const canEdit = room.status !== 'over';
-
-  if (editing) {
-    return (
-      <section className="topic card">
-        <textarea rows={3} autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} />
-        <div className="topic-actions">
-          <button className="btn" onClick={() => setEditing(false)}>
-            Cancel
-          </button>
-          <button
-            className="btn btn-primary"
-            disabled={!draft.trim()}
-            onClick={async () => {
-              await sendControl(room.code, { action: 'topic', topic: draft });
-              setEditing(false);
-            }}
-          >
-            Save topic
-          </button>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className={`topic card ${room.topic ? '' : 'topic-missing'}`}>
-      <span className="label">Topic</span>
-      <p>{room.topic || 'No topic yet. The conversation starts once you set one.'}</p>
-      {canEdit && (
-        <button
-          className="btn btn-small"
-          onClick={() => {
-            setDraft(room.topic);
-            setEditing(true);
-          }}
-        >
-          {room.topic ? 'Edit' : 'Set topic'}
-        </button>
-      )}
-    </section>
   );
 }
 
