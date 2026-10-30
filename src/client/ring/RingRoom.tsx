@@ -4,6 +4,7 @@ import { Markdown } from '../Markdown';
 import { Controls, Topic } from '../RoomControls';
 import { Boxer, type BoxerState } from './Boxer';
 import { Crowd } from './Crowd';
+import { setSound, sfx, soundOn } from './sound';
 import './ring.css';
 
 const HIT_MS = 900;
@@ -19,13 +20,18 @@ export function RingRoom({ room, switcher }: { room: RoomView; switcher: ReactNo
   useEffect(() => {
     if (count <= seenOnLoad.current || !latest) return;
     setHit({ seat: latest.seat, n: count });
+    sfx.punch();
     const timer = setTimeout(() => setHit(null), HIT_MS);
     return () => clearTimeout(timer);
   }, [count]);
 
+  useMatchSounds(room);
+
   const stateOf = (seat: number): BoxerState => {
     if (!room.seats[seat]) return 'empty';
     if (hit) return hit.seat === seat ? 'punch' : 'hurt';
+    const winner = room.verdict?.winner;
+    if (winner) return room.seats[seat]?.name === winner ? 'win' : 'ko';
     if (room.status === 'over') return 'rest';
     if (room.status === 'running' && room.turn === seat) return 'windup';
     return 'idle';
@@ -39,6 +45,7 @@ export function RingRoom({ room, switcher }: { room: RoomView; switcher: ReactNo
         </span>
         <div className="ring-actions">
           {switcher}
+          <SoundSwitch />
           <Controls room={room} />
         </div>
       </section>
@@ -70,6 +77,12 @@ export function RingRoom({ room, switcher }: { room: RoomView; switcher: ReactNo
         <Banner room={room} />
       </section>
 
+      {room.verdict && (
+        <section className="dialogue judge">
+          <span className="dialogue-name">JUDGE: {room.verdict.judgedBy}</span>
+          <p className="dialogue-text">{room.verdict.reason}</p>
+        </section>
+      )}
       <Dialogue room={room} latest={latest} animate={count > seenOnLoad.current} />
 
       {count > 1 && (
@@ -89,9 +102,41 @@ export function RingRoom({ room, switcher }: { room: RoomView; switcher: ReactNo
   );
 }
 
+/** Bells and the verdict fanfare, played only for changes seen while the page is open. */
+function useMatchSounds(room: RoomView) {
+  const prev = useRef({ status: room.status, verdict: !!room.verdict });
+  useEffect(() => {
+    const was = prev.current;
+    if (was.status !== 'running' && room.status === 'running' && room.messages.length === 0) sfx.bell();
+    if (was.status !== 'over' && room.status === 'over') sfx.bell(3);
+    if (!was.verdict && room.verdict) {
+      sfx.fanfare();
+      if (room.verdict.winner) sfx.knockout();
+    }
+    prev.current = { status: room.status, verdict: !!room.verdict };
+  }, [room.status, room.verdict, room.messages.length]);
+}
+
+function SoundSwitch() {
+  const [on, setOn] = useState(soundOn);
+  return (
+    <button
+      className={`btn btn-sound ${on ? 'on' : ''}`}
+      aria-pressed={on}
+      onClick={() => {
+        setSound(!on);
+        setOn(!on);
+        if (!on) sfx.bell();
+      }}
+    >
+      {on ? 'SOUND: ON' : 'SOUND: OFF'}
+    </button>
+  );
+}
+
 function Hud({ room }: { room: RoomView }) {
   // Each punch knocks the other boxer down a notch. Nobody quite hits zero.
-  const perHit = 90 / Math.ceil(room.maxTurns / 2);
+  const perHit = 90 / Math.ceil(Math.max(room.maxTurns, room.messages.length) / 2);
   const health = (seat: number) =>
     Math.max(10, 100 - room.messages.filter((m) => m.seat !== seat).length * perHit);
 
@@ -108,7 +153,9 @@ function Hud({ room }: { room: RoomView }) {
       <div className="hud-round">
         <small>ROUND</small>
         <b>
-          {Math.min(room.messages.length + 1, room.maxTurns)}/{room.maxTurns}
+          {room.endless
+            ? `${room.messages.length + 1}/∞`
+            : `${Math.min(room.messages.length + 1, room.maxTurns)}/${room.maxTurns}`}
         </b>
       </div>
     </section>
@@ -117,7 +164,9 @@ function Hud({ room }: { room: RoomView }) {
 
 function Banner({ room }: { room: RoomView }) {
   let text: string | null = null;
-  if (room.status === 'over') text = 'FINAL BELL';
+  if (room.verdict) text = room.verdict.winner ? `${room.verdict.winner} WINS!` : 'DRAW!';
+  else if (room.judging) text = 'JUDGES SCORING...';
+  else if (room.status === 'over') text = 'FINAL BELL';
   else if (room.status === 'paused') text = 'TIME OUT';
   else if (room.seats.some((s) => !s)) text = 'WAITING FOR A CHALLENGER';
   else if (!room.topic) text = 'SET THE FIGHT CARD';
@@ -162,7 +211,9 @@ function useTypewriter(text: string, animate: boolean): [string, boolean, () => 
     setN(0);
     // Long messages type faster so none takes more than about ten seconds.
     const step = Math.max(1, Math.ceil(text.length / 600));
+    let ticks = 0;
     const timer = setInterval(() => {
+      if (ticks++ % 4 === 0) sfx.blip();
       setN((v) => {
         if (v >= text.length) clearInterval(timer);
         return Math.min(text.length, v + step);

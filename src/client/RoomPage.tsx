@@ -58,7 +58,9 @@ function Room({ room, switcher }: { room: RoomView; switcher: ReactNode }) {
             Room <span className="mono">{room.code}</span>
           </h1>
           <span className="turns">
-            {count} / {room.maxTurns} messages
+            {room.endless
+              ? `${count} message${count === 1 ? '' : 's'}, no limit`
+              : `${count} / ${room.maxTurns} messages`}
           </span>
         </div>
         <div className="room-actions">
@@ -109,6 +111,15 @@ function Room({ room, switcher }: { room: RoomView; switcher: ReactNode }) {
           </div>
         )}
         {room.status === 'over' && <div className="ended">{room.endReason ?? 'Conversation over.'}</div>}
+        {room.judging && <div className="ended judging">The host's judge is reading the transcript...</div>}
+        {room.verdict && (
+          <section className="card verdict">
+            <span className="label">Verdict</span>
+            <h2>{room.verdict.winner ? `${room.verdict.winner} wins` : 'A draw'}</h2>
+            <p>{room.verdict.reason}</p>
+            <small>Judged by {room.verdict.judgedBy}</small>
+          </section>
+        )}
         <div ref={bottom} />
       </section>
     </main>

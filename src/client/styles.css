@@ -661,3 +661,41 @@ textarea {
     max-width: 100%;
   }
 }
+
+.btn-endless.on {
+  background: var(--live);
+  border-color: var(--live);
+  color: #fff;
+}
+
+.judging {
+  animation: pulse 1.6s infinite;
+}
+
+.verdict {
+  align-self: stretch;
+  text-align: center;
+  border-color: var(--ink);
+}
+
+.verdict .label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.verdict h2 {
+  font-size: 26px;
+  margin: 6px 0 10px;
+}
+
+.verdict p {
+  margin: 0 auto 10px;
+  max-width: 60ch;
+}
+
+.verdict small {
+  color: var(--muted);
+}

@@ -48,6 +48,7 @@ describe('MCP endpoint', () => {
       'join_room',
       'wait_for_turn',
       'say',
+      'submit_verdict',
     ]);
   });
 
@@ -64,8 +65,10 @@ describe('MCP endpoint', () => {
     expect(bTurn.text).toContain('<other_claude_message>\nTabs.\n</other_claude_message>');
     expect(bTurn.text).toContain('final message');
 
-    expect((await call('say', { token: b, message: 'Spaces.' })).text).toContain('Conversation over');
-    expect((await call('wait_for_turn', { token: a })).text).toContain('Conversation over');
+    const bLast = (await call('say', { token: b, message: 'Spaces.' })).text;
+    expect(bLast).toContain('Conversation over');
+    expect(bLast).not.toContain('<transcript>');
+    expect((await call('wait_for_turn', { token: a })).text).toContain('You are the host');
     expect((await room(code)).status).toBe('over');
   });
 
@@ -94,9 +97,42 @@ describe('MCP endpoint', () => {
 
   it('turns away a third Claude', async () => {
     const { code } = await seatedRoom('Tabs or spaces?');
-    expect(await call('join_room', { code })).toEqual({
+    expect(await call('join_room', { code, display_name: 'Eve' })).toEqual({
       text: 'Both seats in that room are taken.',
       isError: true,
     });
+  });
+
+  it('asks for a name instead of making one up', async () => {
+    const result = await call('create_room', { topic: 'Tabs or spaces?' });
+    expect(result).toEqual({ text: expect.stringContaining('Ask your human'), isError: true });
+  });
+
+  it('keeps going past the limit until a viewer stops it', async () => {
+    const { code, a, b } = await seatedRoom('Tabs or spaces?', 2);
+    await control(code, { action: 'endless', on: true });
+    await call('say', { token: a, message: 'One.' });
+    const second = await call('say', { token: b, message: 'Two.' });
+    expect(second.text).toContain('No message limit');
+    expect((await call('wait_for_turn', { token: a })).text).toContain('no limit');
+    await control(code, { action: 'stop' });
+    expect((await room(code)).status).toBe('over');
+  });
+
+  it('lets only the host submit one verdict, naming a seat or a draw', async () => {
+    const { code, a, b } = await seatedRoom('Tabs or spaces?', 2);
+    await call('say', { token: a, message: 'Tabs.' });
+    await call('say', { token: b, message: 'Spaces.' });
+    expect((await room(code)).judging).toBe(true);
+
+    const verdict = { winner: 'ada (2)', reason: 'Better evidence.', judged_by: 'Fable 5.1 subagent' };
+    expect((await call('submit_verdict', { token: b, ...verdict })).isError).toBe(true);
+    expect((await call('submit_verdict', { token: a, ...verdict, winner: 'Bob' })).isError).toBe(true);
+    expect((await call('submit_verdict', { token: a, ...verdict })).text).toContain('Ada (2) wins');
+    expect((await call('submit_verdict', { token: a, ...verdict })).isError).toBe(true);
+
+    const view = await room(code);
+    expect(view.judging).toBe(false);
+    expect(view.verdict).toEqual({ winner: 'Ada (2)', reason: 'Better evidence.', judgedBy: 'Fable 5.1 subagent' });
   });
 });

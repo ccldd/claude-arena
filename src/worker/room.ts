@@ -3,11 +3,13 @@ import {
   DEFAULT_MAX_TURNS,
   MAX_MESSAGE_LENGTH,
   MAX_TOPIC_LENGTH,
+  MAX_VERDICT_LENGTH,
   MAX_TURNS_LIMIT,
   type Control,
   type Message,
   type RoomView,
   type Status,
+  type Verdict,
 } from '../shared/types';
 
 /** Long-polls return before common client timeouts (60s) are hit. */
@@ -27,7 +29,10 @@ interface State {
   turn: number;
   messages: Message[];
   paused: boolean;
+  /** A viewer pressed Keep going: ignore the message limit until someone presses Stop. */
+  endless?: boolean;
   endReason?: string;
+  verdict?: Verdict;
 }
 
 export type WaitResult =
@@ -37,16 +42,20 @@ export type WaitResult =
       you: string;
       other: string;
       turnNumber: number;
-      maxTurns: number;
+      /** Null when a viewer took the limit off. */
+      maxTurns: number | null;
       last?: Message;
     }
   | { kind: 'waiting'; reason: string }
-  | { kind: 'over'; reason: string }
+  | Over
   | { kind: 'error'; error: string };
 
+/** judge carries the transcript when this seat is the host and the match still needs a verdict. */
+export type Over = { kind: 'over'; reason: string; judge?: Message[] };
+
 export type SayResult =
-  | { kind: 'sent'; remaining: number }
-  | { kind: 'over'; reason: string }
+  | { kind: 'sent'; remaining: number | null }
+  | Over
   | { kind: 'error'; error: string };
 
 export interface CreateOptions {
@@ -121,7 +130,7 @@ export class Room extends DurableObject<Env> {
     const s = this.state;
     const seat = this.seatOf(token);
     if (!s || seat < 0) return { kind: 'error', error: 'Unknown seat token.' };
-    if (s.endReason) return { kind: 'over', reason: s.endReason };
+    if (s.endReason) return this.overFor(seat);
     if (this.status() !== 'running' || s.turn !== seat) {
       return { kind: 'error', error: 'It is not your turn. Call wait_for_turn first.' };
     }
@@ -134,11 +143,11 @@ export class Room extends DurableObject<Env> {
       at: Date.now(),
     });
     s.turn = 1 - seat;
-    if (s.messages.length >= s.maxTurns) s.endReason = `Reached the ${s.maxTurns}-message limit.`;
+    if (!s.endless && s.messages.length >= s.maxTurns) s.endReason = `Reached the ${s.maxTurns}-message limit.`;
     await this.commit();
     return s.endReason
-      ? { kind: 'over', reason: s.endReason }
-      : { kind: 'sent', remaining: s.maxTurns - s.messages.length };
+      ? this.overFor(seat)
+      : { kind: 'sent', remaining: s.endless ? null : s.maxTurns - s.messages.length };
   }
 
   async control(c: Control): Promise<RoomView | { error: string }> {
@@ -148,6 +157,7 @@ export class Room extends DurableObject<Env> {
     if (c.action === 'topic') s.topic = cleanTopic(c.topic);
     else if (c.action === 'pause') s.paused = true;
     else if (c.action === 'resume') s.paused = false;
+    else if (c.action === 'endless') s.endless = c.on;
     else if (c.action === 'stop') s.endReason = 'Stopped by a viewer.';
     await this.commit();
     return this.view()!;
@@ -160,11 +170,14 @@ export class Room extends DurableObject<Env> {
       code: s.code,
       topic: s.topic,
       maxTurns: s.maxTurns,
+      endless: s.endless ?? false,
       status: this.status(),
       turn: s.turn,
       seats: s.seats.map((x) => (x ? { name: x.name } : null)),
       messages: s.messages,
       endReason: s.endReason,
+      verdict: s.verdict,
+      judging: this.needsVerdict(),
     };
   }
 
@@ -183,6 +196,45 @@ export class Room extends DurableObject<Env> {
     this.state = null;
   }
 
+  async submitVerdict(
+    token: string,
+    winner: string,
+    reason: string,
+    judgedBy: string,
+  ): Promise<{ ok: true; verdict: Verdict } | { error: string }> {
+    const s = this.state;
+    const seat = this.seatOf(token);
+    if (!s || seat < 0) return { error: 'Unknown seat token.' };
+    if (seat !== 0) return { error: 'Only the host (seat 1) submits the verdict.' };
+    if (!this.needsVerdict()) {
+      return { error: s.verdict ? 'A verdict is already in.' : 'There is nothing to judge yet.' };
+    }
+    const names = s.seats.map((x) => x!.name);
+    const pick = winner.trim().toLowerCase();
+    const index = names.findIndex((n) => n.toLowerCase() === pick);
+    if (pick !== 'draw' && index < 0) {
+      return { error: `winner must be "${names[0]}", "${names[1]}" or "draw".` };
+    }
+    s.verdict = {
+      winner: index < 0 ? null : names[index],
+      reason: reason.trim().slice(0, MAX_VERDICT_LENGTH),
+      judgedBy: judgedBy.trim().slice(0, 60) || 'the host',
+    };
+    await this.commit();
+    return { ok: true, verdict: s.verdict };
+  }
+
+  private needsVerdict(): boolean {
+    const s = this.state!;
+    return !!s.endReason && !s.verdict && s.messages.length >= 2;
+  }
+
+  private overFor(seat: number): Over {
+    const s = this.state!;
+    const judge = seat === 0 && this.needsVerdict() ? s.messages : undefined;
+    return { kind: 'over', reason: s.endReason!, judge };
+  }
+
   private status(): Status {
     const s = this.state!;
     if (s.endReason) return 'over';
@@ -192,7 +244,7 @@ export class Room extends DurableObject<Env> {
 
   private turnFor(seat: number): WaitResult | null {
     const s = this.state!;
-    if (s.endReason) return { kind: 'over', reason: s.endReason };
+    if (s.endReason) return this.overFor(seat);
     if (this.status() !== 'running' || s.turn !== seat) return null;
     return {
       kind: 'your_turn',
@@ -200,7 +252,7 @@ export class Room extends DurableObject<Env> {
       you: s.seats[seat]!.name,
       other: s.seats[1 - seat]!.name,
       turnNumber: s.messages.length + 1,
-      maxTurns: s.maxTurns,
+      maxTurns: s.endless ? null : s.maxTurns,
       last: s.messages.at(-1),
     };
   }

@@ -17,6 +17,14 @@ export function Controls({ room }: { room: RoomView }) {
         </button>
       )}
       <button
+        className={`btn btn-endless ${room.endless ? 'on' : ''}`}
+        aria-pressed={room.endless}
+        title={room.endless ? 'Bring back the message limit' : 'Remove the message limit. They keep talking until you press Stop.'}
+        onClick={() => sendControl(room.code, { action: 'endless', on: !room.endless })}
+      >
+        {room.endless ? 'Keep going: on' : 'Keep going'}
+      </button>
+      <button
         className="btn btn-danger"
         onClick={() => confirm('End this conversation for good?') && control('stop')}
       >

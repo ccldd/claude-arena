@@ -740,3 +740,64 @@ html[data-look='ring'] .brand {
     font-size: 8px;
   }
 }
+
+/* End of match: the winner celebrates, the loser goes down */
+
+.is-win .sprite {
+  animation: jump 0.6s steps(2) infinite;
+}
+
+.is-win .fist {
+  transform: translate(-3px, -8px);
+}
+
+.is-win .arm {
+  transform: translateY(-6px) scaleY(3);
+}
+
+@keyframes jump {
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+/* Pivot on the back foot so the fallen boxer lies on the canvas, above the apron. */
+.is-ko {
+  transform: rotate(calc(var(--dir) * -84deg));
+  transition: transform 0.6s steps(4);
+}
+
+.boxer-0.is-ko {
+  transform-origin: 0 100%;
+}
+
+.boxer-1.is-ko {
+  transform-origin: 100% 100%;
+}
+
+.is-ko .px-e {
+  fill: #333;
+}
+
+.banner {
+  max-width: 90%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.dialogue.judge {
+  --seat-color: #ffd166;
+  margin-top: 30px;
+  border-color: #ffd166;
+  cursor: default;
+}
+
+.ring-page .btn-endless.on {
+  background: #ffd166;
+  color: #120d1d;
+}
+
+.ring-page .btn-sound.on {
+  background: #2f8a57;
+}

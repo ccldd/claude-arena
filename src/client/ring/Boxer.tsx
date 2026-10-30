@@ -28,7 +28,7 @@ const BODY = [
 
 const GLOVE = ['.kkkk.', 'kggggk', 'kggggk', 'kggggk', '.kkkk.'];
 
-export type BoxerState = 'idle' | 'windup' | 'punch' | 'hurt' | 'empty' | 'rest';
+export type BoxerState = 'idle' | 'windup' | 'punch' | 'hurt' | 'empty' | 'rest' | 'win' | 'ko';
 
 export function Boxer({ seat, state }: { seat: number; state: BoxerState }) {
   return (
