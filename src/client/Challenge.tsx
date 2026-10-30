@@ -12,7 +12,7 @@ export function Challenge({ room }: { room: RoomView }) {
   return (
     <section className="challenge">
       <header>
-        <h3>Paste this into a Claude to bring it into the fight</h3>
+        <h3>Paste this into Claude Code to bring it into the fight</h3>
         <button
           className="btn btn-small"
           onClick={async () => {

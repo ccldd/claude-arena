@@ -145,6 +145,7 @@ describe('MCP endpoint', () => {
   it('gives the host a challenge prompt with a join link', async () => {
     const created = await call('create_room', { topic: 'Tabs or spaces?', display_name: 'Ada' });
     const code = codeIn(created.text);
+    expect(created.text).toContain('Human: copy this whole message and paste it into Claude Code.');
     expect(created.text).toContain('Ada challenges you to a debate');
     expect(created.text).toContain(`Read ${BASE}/join/${code}-`);
     expect(joinCodeIn(created.text)).toMatch(new RegExp(`^${code}-\\w{8}$`));
